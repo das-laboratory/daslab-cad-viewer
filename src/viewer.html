@@ -1,0 +1,968 @@
+<title>DAS Lab 도면 뷰어</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one-screen CAD workspace — tool bar, model-space canvas, layer rail on the right (bottom sheet on phones) */
+:root{
+  --bg:#EDF1F3; --panel:#FFFFFF; --ink:#16202A; --muted:#5D6A75; --line:#D5DDE2; --chip:#E6EDF0;
+  --accent:#0A8DB8; --accent-ink:#FFFFFF; --accent-soft:#DDF2F9;
+  --canvas:#FBFCFC; --grid:#EDF1F3; --grid-major:#DCE3E7; --ent:#1A222B; --measure:#D9480F;
+  --font-ui:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1419; --panel:#161D24; --ink:#E3E9EE; --muted:#93A1AD; --line:#26313B; --chip:#1E2832;
+    --accent:#3CC2EA; --accent-ink:#04202A; --accent-soft:#12303B;
+    --canvas:#141B22; --grid:#1A232B; --grid-major:#222D37; --ent:#E6ECF0; --measure:#FF8A4C; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1419; --panel:#161D24; --ink:#E3E9EE; --muted:#93A1AD; --line:#26313B; --chip:#1E2832;
+  --accent:#3CC2EA; --accent-ink:#04202A; --accent-soft:#12303B;
+  --canvas:#141B22; --grid:#1A232B; --grid-major:#222D37; --ent:#E6ECF0; --measure:#FF8A4C; color-scheme:dark;
+}
+[hidden]{display:none!important}
+.about{position:fixed;inset:0;z-index:20;background:rgba(8,12,16,.48);display:grid;place-items:center;padding-inline:16px;padding-block:16px}
+.about-card{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:14px;width:min(680px,100%);max-height:100%;overflow:auto;padding:22px 24px;box-sizing:border-box;box-shadow:0 18px 48px rgba(0,0,0,.25)}
+.about-card .about-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.about-card h2{font-size:19px;margin:0 0 8px;display:flex;align-items:center;gap:10px;text-wrap:balance}
+.about-card h3{font-size:13px;letter-spacing:.4px;color:var(--muted);margin:18px 0 6px}
+.about-card p{margin:0 0 8px;line-height:1.6;max-width:62ch}
+.about-card a{color:var(--accent)}
+.oss-wrap{overflow-x:auto}
+table.oss{border-collapse:collapse;width:100%;font-size:12.5px;min-width:520px}
+table.oss th,table.oss td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+table.oss th{font-weight:600;color:var(--muted)}
+.about-card details{margin-top:8px;border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+.about-card summary{cursor:pointer;font-weight:500}
+.about-card pre{white-space:pre-wrap;font:400 11.5px/1.5 var(--font-mono);max-height:260px;overflow:auto;margin:8px 0 0;color:var(--muted)}
+.calib{position:absolute;left:50%;top:12px;transform:translateX(-50%);display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:8px 12px;font-size:13px;box-shadow:0 6px 24px rgba(0,0,0,.12);max-width:calc(100% - 24px);z-index:4}
+.calib input{width:96px;font:500 13px var(--font-mono);padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+.calib select,.pagebox select{font:500 13px var(--font-ui);padding:5px 6px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+.pagebox{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:8px}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:14px;line-height:1.45;overflow:hidden}
+.app{height:100%;display:flex;flex-direction:column;gap:10px;padding-inline:16px;padding-block:12px;box-sizing:border-box}
+.bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;letter-spacing:-.2px;white-space:nowrap;color:var(--ink);text-decoration:none;border-radius:7px}
+.brand:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.logo-img{height:26px;width:auto;border-radius:5px;display:block}
+.logo-img.lg{height:40px;border-radius:7px}
+.brand small{font:500 11px var(--font-mono);letter-spacing:1.5px;color:var(--accent);text-transform:uppercase}
+.file{display:flex;align-items:center;gap:8px;min-width:0;flex:1}
+.file b{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.chip{font:500 11px var(--font-mono);background:var(--chip);color:var(--muted);padding:3px 8px;border-radius:5px;white-space:nowrap}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{appearance:none;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:500 13px var(--font-ui);padding:7px 12px;border-radius:7px;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--accent)}
+.btn:focus-visible,.lay input:focus-visible,.link:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--accent);text-decoration:none}
+.btn.ghost:hover{border-color:var(--line)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--ink)}
+.btn kbd{font:500 10.5px var(--font-mono);color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:0 4px}
+.only-narrow{display:none}
+.work{flex:1;min-height:0;display:flex;gap:10px;position:relative}
+.stage{flex:1;min-width:0;position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--canvas);touch-action:none}
+canvas{display:block;width:100%;height:100%;cursor:crosshair}
+.stage.panning canvas{cursor:grabbing}
+.hud{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:flex-end;align-items:flex-end;gap:10px;padding:8px 10px;pointer-events:none}
+.hud span{font:500 12px var(--font-mono);background:color-mix(in srgb,var(--panel) 88%,transparent);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font-variant-numeric:tabular-nums;white-space:nowrap}
+#measureOut{color:var(--measure);border-color:color-mix(in srgb,var(--measure) 45%,var(--line))}
+.drop{position:absolute;inset:10px;border:2px dashed var(--accent);border-radius:10px;background:color-mix(in srgb,var(--accent-soft) 80%,transparent);display:grid;place-items:center;font-weight:600;font-size:16px;color:var(--ink);pointer-events:none}
+.toast{position:absolute;left:50%;top:12px;transform:translateX(-50%);max-width:min(560px,calc(100% - 24px));background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--measure);border-radius:8px;padding:10px 14px;font-size:13.5px;box-shadow:0 6px 24px rgba(0,0,0,.12)}
+.side{flex:0 0 288px;min-width:0;display:flex;flex-direction:column;gap:10px;min-height:0}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0}
+.layers{flex:1;min-height:0;display:flex;flex-direction:column}
+.box h2{margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:.6px;color:var(--muted);display:flex;align-items:center;gap:8px}
+.box h2 .sp{flex:1}
+.link{appearance:none;border:none;background:none;color:var(--accent);font:500 12px var(--font-ui);cursor:pointer;padding:2px 0}
+#layerList{list-style:none;margin:0;padding:0;overflow:auto;min-height:0;flex:1}
+.lay{display:flex;align-items:center;gap:9px;padding:5px 2px;border-bottom:1px solid color-mix(in srgb,var(--line) 60%,transparent);font-size:13px}
+.lay label{display:flex;align-items:center;gap:9px;flex:1;min-width:0;cursor:pointer}
+.lay input{accent-color:var(--accent);margin:0}
+.sw{width:12px;height:12px;border-radius:3px;border:1px solid color-mix(in srgb,var(--ink) 25%,transparent);flex:0 0 12px}
+.lay .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.lay .ct{margin-left:auto;font:400 11.5px var(--font-mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.lay.off .nm{color:var(--muted);text-decoration:line-through}
+dl.info{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0;font-size:12.5px}
+dl.info dt{color:var(--muted)}
+dl.info dd{margin:0;font-family:var(--font-mono);font-size:12px;text-align:right;overflow-wrap:anywhere}
+.hint{margin:0;font-size:12px;color:var(--muted)}
+.hint b{color:var(--ink);font-weight:500}
+@media (max-width:760px){
+  .only-narrow{display:inline-flex}
+  .side{position:absolute;left:8px;right:8px;bottom:8px;height:62%;z-index:5;box-shadow:0 10px 30px rgba(0,0,0,.22);border-radius:12px}
+  .side .box{border-radius:10px}
+  .file{flex-basis:100%;order:3}
+  .layers{min-height:160px}
+  .btn kbd{display:none}
+}
+@media (prefers-reduced-motion: no-preference){ .btn{transition:border-color .15s, background .15s} }
+</style>
+
+<div class="app">
+  <header class="bar">
+    <a class="brand" href="https://daslab.co.kr" target="_blank" rel="noopener" title="DAS Lab 홈페이지 열기"><img class="logo-img" src="__LOGO_DATA_URI__" alt="DAS Lab"><span>도면 뷰어</span><small>DWG · DXF · PDF · 이미지</small></a>
+    <div class="file"><b id="fileName">불러오는 중…</b><span class="chip" id="fileTag" hidden>샘플</span></div>
+    <div class="actions">
+      <button class="btn primary" id="openBtn" type="button">도면 열기</button>
+      <input id="fileInput" type="file" accept=".dxf,.dwg,.pdf,.svg,.png,.jpg,.jpeg,.webp,.gif" hidden>
+      <button class="btn" id="fitBtn" type="button">화면 맞춤 <kbd>F</kbd></button>
+      <button class="btn" id="measureBtn" type="button" aria-pressed="false">거리 재기 <kbd>M</kbd></button>
+      <button class="btn" id="calibBtn" type="button" aria-pressed="false">축척 맞추기</button>
+      <button class="btn" id="aboutBtn" type="button">정보</button>
+      <a class="btn ghost" href="https://www.instagram.com/das_laboratory/" target="_blank" rel="noopener" title="DAS Lab 인스타그램">Instagram @das_laboratory</a>
+      <button class="btn only-narrow" id="layersBtn" type="button" aria-expanded="false">레이어</button>
+    </div>
+  </header>
+  <main class="work">
+    <section class="stage" id="stage" aria-label="도면 캔버스">
+      <canvas id="cv"></canvas>
+      <div class="drop" id="drop" hidden>여기에 놓으면 도면이 열려요 (DWG · DXF · PDF · SVG · 이미지)</div>
+      <div class="toast" id="toast" role="status" hidden></div>
+      <form class="calib" id="calibForm" hidden><label for="calibLen">두 점 사이 실제 길이</label><input id="calibLen" type="number" step="any" min="0" required><select id="calibUnit" aria-label="단위"><option>m</option><option>cm</option><option>mm</option></select><button class="btn primary" type="submit">적용</button><button class="btn" type="button" id="calibCancel">취소</button></form>
+      <div class="hud"><span id="measureOut" hidden></span><span id="coord">X —   Y —</span></div>
+    </section>
+    <aside class="side" id="side">
+      <div class="box layers">
+        <h2>레이어 <span class="chip" id="layerCount">0</span><span class="sp"></span><button class="link" id="allOn" type="button">모두 켜기</button><button class="link" id="allOff" type="button">모두 끄기</button></h2>
+        <div id="pageBox" class="pagebox" hidden><label for="pageSel">페이지</label><select id="pageSel"></select></div>
+        <p class="hint" id="noLayers" hidden>이 형식은 레이어가 없어요. 축척 맞추기로 실제 길이를 맞추면 거리를 m 단위로 잴 수 있어요.</p>
+        <ul id="layerList"></ul>
+      </div>
+      <div class="box">
+        <h2>파일 정보</h2>
+        <dl class="info" id="info"></dl>
+      </div>
+      <div class="box">
+        <p class="hint">만든 곳 <a class="link" href="https://daslab.co.kr" target="_blank" rel="noopener">DAS Lab</a> · <a class="link" href="https://www.instagram.com/das_laboratory/" target="_blank" rel="noopener">@das_laboratory</a></p>
+        <p class="hint" style="margin-top:6px"><b>드래그</b> 이동 · <b>휠/핀치</b> 확대 · <b>더블클릭</b> 화면 맞춤 · <b>거리 재기</b>는 두 점 클릭 (끝점에 붙음) · <b>축척 맞추기</b>는 길이를 아는 두 점을 찍고 실제 길이 입력 · DWG · DXF · PDF · SVG · 이미지 파일을 화면에 끌어다 놓아도 열려요 · 파일은 이 기기 안에서만 처리돼요</p>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<div class="about" id="about" hidden>
+  <div class="about-card" role="dialog" aria-modal="true" aria-labelledby="aboutTitle">
+    <div class="about-head"><a href="https://daslab.co.kr" target="_blank" rel="noopener" title="DAS Lab 홈페이지 열기"><img class="logo-img lg" src="__LOGO_DATA_URI__" alt="DAS Lab"></a><button class="btn" id="aboutClose" type="button">닫기</button></div>
+    <h2 id="aboutTitle">DAS Lab 도면 뷰어 <span class="chip">v1.0 · 2026.10</span></h2>
+    <p>설치 없이 DWG · DXF · PDF · SVG · 이미지 도면을 열어 보는 무료 뷰어예요. 파일은 이 기기 안에서만 처리되고, 어디에도 올라가지 않아요.</p>
+    <p><a href="https://daslab.co.kr" target="_blank" rel="noopener">daslab.co.kr</a> · <a href="https://www.instagram.com/das_laboratory/" target="_blank" rel="noopener">Instagram @das_laboratory</a></p>
+    <h3>사용 시 유의사항</h3>
+    <p>화면 표시와 측정값은 참고용이에요. 설계 · 시공 같은 실제 판단은 원본 CAD 파일에서 확인해 주세요. 이 프로그램은 어떤 보증도 없이 제공돼요.</p>
+    <h3>라이선스</h3>
+    <p>이 프로그램은 GNU GPL v3(또는 이후 버전)으로 배포돼요. 누구나 자유롭게 쓰고, 고치고, 다시 배포할 수 있어요. 다시 배포할 때는 같은 라이선스로 소스 코드와 함께 배포해야 해요. ‘DAS Lab’ 이름과 로고는 이 라이선스에 포함되지 않아요 (GPL v3 제7조 e항).</p>
+    <p>Copyright © 2026 주식회사 다스랩 (DAS Lab)</p>
+    <h3>소스 코드와 오픈소스 고지</h3>
+    <p>뷰어 코드는 이 HTML 파일 안에 그대로 들어 있어요. 함께 쓴 오픈소스의 원본 소스는 아래 주소에서 받을 수 있어요.__SOURCE_LINE__</p>
+    <div class="oss-wrap"><table class="oss">
+      <tr><th>구성 요소</th><th>라이선스</th><th>저작권</th><th>소스</th></tr>
+      <tr><td>LibreDWG (DWG 읽기)</td><td>GPL-3.0-or-later</td><td>© Free Software Foundation, Inc.</td><td><a href="https://github.com/LibreDWG/libredwg" target="_blank" rel="noopener">github.com/LibreDWG/libredwg</a></td></tr>
+      <tr><td>libredwg-web 0.7.15</td><td>GPL-3.0</td><td>© MLight Lee</td><td><a href="https://github.com/mlightcad/libredwg-web/tree/v0.7.15" target="_blank" rel="noopener">github.com/mlightcad/libredwg-web (v0.7.15)</a></td></tr>
+      <tr><td>PDF.js 3.11.174</td><td>Apache-2.0</td><td>© Mozilla Foundation</td><td><a href="https://github.com/mozilla/pdf.js/tree/v3.11.174" target="_blank" rel="noopener">github.com/mozilla/pdf.js (v3.11.174)</a></td></tr>
+      <tr><td>IBM Plex Sans KR · Mono (웹폰트, 온라인 로드)</td><td>SIL OFL 1.1</td><td>© IBM Corp.</td><td><a href="https://fonts.google.com" target="_blank" rel="noopener">fonts.google.com</a></td></tr>
+    </table></div>
+    <details><summary>GNU GPL v3 전문</summary><pre>__GPL_TEXT__</pre></details>
+    <details><summary>Apache License 2.0 전문</summary><pre>__APACHE_TEXT__</pre></details>
+  </div>
+</div>
+
+<script type="text/plain" id="pdfWorker">__PDF_WORKER_B64__</script>
+<script>__PDFJS__</script>
+<script type="text/plain" id="wasmGz">__WASM_GZ_B64__</script>
+<script>__DWG_ENGINE__</script>
+<script type="text/plain" id="sampleDxf" data-name="__SAMPLE_NAME__">__SAMPLE_DXF__</script>
+<script>
+/*! DAS Lab 도면 뷰어 v1.0 — Copyright (C) 2026 주식회사 다스랩 (DAS Lab)
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License as published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version. This program is distributed WITHOUT ANY WARRANTY;
+ * see the GNU General Public License for more details: https://www.gnu.org/licenses/
+ * The "DAS Lab" name and logo are not licensed under the GPL (GPLv3 section 7(e)). */
+(() => {
+'use strict';
+// ───────────────────────── ACI colour table ─────────────────────────
+const ACI = (() => {
+  const t = new Array(256);
+  const base = {1:[255,0,0],2:[255,255,0],3:[0,255,0],4:[0,255,255],5:[0,0,255],6:[255,0,255],7:[255,255,255],8:[128,128,128],9:[192,192,192]};
+  for (const k in base) t[k] = base[k];
+  const V = [255,204,153,127,76];
+  const hsv = (h, s, v) => { const c = v*s, x = c*(1-Math.abs((h/60)%2-1)), m = v-c; let r=0,g=0,b=0;
+    if (h<60) [r,g,b]=[c,x,0]; else if (h<120) [r,g,b]=[x,c,0]; else if (h<180) [r,g,b]=[0,c,x];
+    else if (h<240) [r,g,b]=[0,x,c]; else if (h<300) [r,g,b]=[x,0,c]; else [r,g,b]=[c,0,x];
+    return [Math.round(r+m),Math.round(g+m),Math.round(b+m)]; };
+  for (let n = 10; n <= 249; n++) { const g = Math.floor((n-10)/10), k = (n-10)%10; t[n] = hsv(g*15, (k&1)?0.5:1, V[k>>1]); }
+  [51,80,105,130,190,255].forEach((v,i) => t[250+i] = [v,v,v]);
+  t[0] = [0,0,0];
+  return t;
+})();
+const UNITS = {0:'',1:'in',2:'ft',3:'mi',4:'mm',5:'cm',6:'m',7:'km',8:'µin',9:'mil',10:'yd',11:'Å',12:'nm',13:'µm',14:'dm',15:'dam',16:'hm',17:'Gm',18:'AU',19:'ly',20:'pc'};
+const VERS = {AC1009:'R12',AC1012:'R13',AC1014:'R14',AC1015:'2000',AC1018:'2004',AC1021:'2007',AC1024:'2010',AC1027:'2013',AC1032:'2018'};
+
+// ───────────────────────── decoding ─────────────────────────
+function decodeDXF(buf) {
+  const bytes = new Uint8Array(buf);
+  const sniff = new TextDecoder('windows-1252').decode(bytes.subarray(0, Math.min(bytes.length, 400000)));
+  if (sniff.startsWith('AutoCAD Binary DXF')) throw new Error('바이너리 DXF는 열 수 없어요. CAD에서 ASCII DXF로 저장해 주세요.');
+  const cp = (sniff.match(/\$DWGCODEPAGE\s*\r?\n\s*3\s*\r?\n\s*(\S+)/) || [])[1] || '';
+  try { return new TextDecoder('utf-8', {fatal:true}).decode(bytes); }
+  catch (e) {
+    const map = {ANSI_949:'euc-kr',ANSI_932:'shift_jis',ANSI_936:'gbk',ANSI_950:'big5',ANSI_1252:'windows-1252',ANSI_1251:'windows-1251',ANSI_1250:'windows-1250'};
+    return new TextDecoder(map[cp.toUpperCase()] || 'euc-kr').decode(bytes);
+  }
+}
+const uniEsc = s => s.replace(/\\U\+([0-9A-Fa-f]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+const pctCodes = s => s.replace(/%%[cC]/g, 'Ø').replace(/%%[dD]/g, '°').replace(/%%[pP]/g, '±').replace(/%%[uUoOkK]/g, '').replace(/%%%/g, '%');
+function cleanMText(s) {
+  s = uniEsc(s).replace(/\\\\/g, '\u0001').replace(/\\\{/g, '\u0002').replace(/\\\}/g, '\u0003');
+  s = s.replace(/\\P/g, '\n').replace(/\\~/g, ' ')
+       .replace(/\\S([^;]*?)[\^\/#]([^;]*?);/g, '$1/$2')
+       .replace(/\\[ACHQTWfFp][^;]*;/g, '')
+       .replace(/\\[LlOoKkNX]/g, '').replace(/[{}]/g, '');
+  return pctCodes(s.replace(/\u0001/g, '\\').replace(/\u0002/g, '{').replace(/\u0003/g, '}'));
+}
+
+// ───────────────────────── parser ─────────────────────────
+function parseDXF(text) {
+  const lines = text.split(/\r\n|\r|\n/);
+  const N = lines.length >> 1;
+  const codes = new Int32Array(N); const vals = new Array(N); let n = 0;
+  for (let i = 0; i + 1 < lines.length; i += 2) {
+    const c = parseInt(lines[i], 10);
+    if (Number.isNaN(c)) { i--; continue; }
+    codes[n] = c; vals[n] = lines[i + 1]; n++;
+  }
+  const doc = {header:{}, layers:new Map(), blocks:new Map(), entities:[], codes, vals, n};
+  const T = k => vals[k].trim();
+  function ent(i) { let j = i + 1; while (j < n && codes[j] !== 0) j++; return {type:T(i), s:i + 1, e:j}; }
+  function readList(i, list, endType) {
+    while (i < n) {
+      if (codes[i] !== 0) { i++; continue; }
+      const t = T(i);
+      if (t === endType) return ent(i).e;
+      if (t === 'ENDSEC' || t === 'EOF') return i;
+      const E = ent(i); i = E.e;
+      if (t === 'POLYLINE') {
+        E.verts = [];
+        while (i < n && codes[i] === 0 && T(i) === 'VERTEX') { const V = ent(i); E.verts.push(V); i = V.e; }
+        if (i < n && codes[i] === 0 && T(i) === 'SEQEND') i = ent(i).e;
+      } else if (t === 'INSERT') {
+        E.attribs = [];
+        while (i < n && codes[i] === 0 && T(i) === 'ATTRIB') { const A = ent(i); E.attribs.push(A); i = A.e; }
+        if (i < n && codes[i] === 0 && T(i) === 'SEQEND') i = ent(i).e;
+      }
+      list.push(E);
+    }
+    return i;
+  }
+  let i = 0;
+  while (i < n) {
+    if (codes[i] === 0 && T(i) === 'SECTION' && codes[i + 1] === 2) {
+      const name = T(i + 1); i += 2;
+      if (name === 'HEADER') {
+        let cur = null;
+        while (i < n && !(codes[i] === 0 && T(i) === 'ENDSEC')) {
+          if (codes[i] === 9) { cur = T(i); doc.header[cur] = {}; } else if (cur) doc.header[cur][codes[i]] = T(i);
+          i++;
+        }
+      } else if (name === 'TABLES') {
+        while (i < n && !(codes[i] === 0 && T(i) === 'ENDSEC')) {
+          if (codes[i] === 0 && T(i) === 'LAYER') {
+            const L = ent(i); let name = '', c = 7, f = 0, tc = null;
+            for (let k = L.s; k < L.e; k++) {
+              if (codes[k] === 2) name = uniEsc(T(k)); else if (codes[k] === 62) c = parseInt(vals[k], 10);
+              else if (codes[k] === 70) f = parseInt(vals[k], 10); else if (codes[k] === 420) tc = parseInt(vals[k], 10);
+            }
+            if (name) doc.layers.set(name, {name, aci: Math.abs(c) || 7, tc, on: c >= 0, frozen: (f & 1) === 1});
+            i = L.e; continue;
+          }
+          i++;
+        }
+      } else if (name === 'BLOCKS') {
+        while (i < n && !(codes[i] === 0 && T(i) === 'ENDSEC')) {
+          if (codes[i] === 0 && T(i) === 'BLOCK') {
+            const B = ent(i); let bn = '', bx = 0, by = 0;
+            for (let k = B.s; k < B.e; k++) { if (codes[k] === 2) bn = T(k); else if (codes[k] === 10) bx = +vals[k]; else if (codes[k] === 20) by = +vals[k]; }
+            const list = []; i = readList(B.e, list, 'ENDBLK');
+            doc.blocks.set(bn, {name:bn, bx, by, list}); continue;
+          }
+          i++;
+        }
+      } else if (name === 'ENTITIES') {
+        i = readList(i, doc.entities, 'ENDSEC');
+      }
+    }
+    i++;
+  }
+  return doc;
+}
+
+// ───────────────────────── geometry build ─────────────────────────
+function build(doc) {
+  const {codes, vals} = doc;
+  const gv = (E, c) => { for (let k = E.s; k < E.e; k++) if (codes[k] === c) return vals[k]; return undefined; };
+  const gf = (E, c, d = 0) => { const v = gv(E, c); return v === undefined ? d : parseFloat(v); };
+  const gi = (E, c, d = 0) => { const v = gv(E, c); return v === undefined ? d : parseInt(v, 10); };
+  const gs = (E, c, d = '') => { const v = gv(E, c); return v === undefined ? d : v.trim(); };
+  const out = {batches:new Map(), fills:[], texts:[], points:[], counts:new Map(), skipped:new Map(), layerUse:new Map(), nverts:0};
+  const W = (out.ext = {minx:Infinity,miny:Infinity,maxx:-Infinity,maxy:-Infinity});
+  const ensureLayer = name => { if (!doc.layers.has(name)) doc.layers.set(name, {name, aci:7, tc:null, on:true, frozen:false}); };
+  const mul = (A, B) => [A[0]*B[0]+A[2]*B[1], A[1]*B[0]+A[3]*B[1], A[0]*B[2]+A[2]*B[3], A[1]*B[2]+A[3]*B[3], A[0]*B[4]+A[2]*B[5]+A[4], A[1]*B[4]+A[3]*B[5]+A[5]];
+  const TR = (x, y) => [1,0,0,1,x,y], RO = a => [Math.cos(a),Math.sin(a),-Math.sin(a),Math.cos(a),0,0], SC = (x, y) => [x,0,0,y,0,0];
+  const FLIP = [-1,0,0,1,0,0];
+  let extent = 1;
+  function addPoly(layer, ck, M, pts, closed) {
+    if (pts.length < 4) return;
+    const m = pts.length >> 1, len = (m + (closed ? 1 : 0)) * 2, a = new Float64Array(len);
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (let k = 0; k < m; k++) {
+      const x = pts[2*k], y = pts[2*k+1], X = M[0]*x + M[2]*y + M[4], Y = M[1]*x + M[3]*y + M[5];
+      if (!Number.isFinite(X) || !Number.isFinite(Y)) return;
+      a[2*k] = X; a[2*k+1] = Y;
+      if (X < x0) x0 = X; if (X > x1) x1 = X; if (Y < y0) y0 = Y; if (Y > y1) y1 = Y;
+    }
+    if (closed) { a[len-2] = a[0]; a[len-1] = a[1]; }
+    const key = layer + '\u0000' + ck;
+    let b = out.batches.get(key);
+    if (!b) { b = {layer, ck, polys:[], bb:[]}; out.batches.set(key, b); }
+    b.polys.push(a); b.bb.push(x0, y0, x1, y1);
+    out.nverts += m;
+    if (x0 < W.minx) W.minx = x0; if (y0 < W.miny) W.miny = y0; if (x1 > W.maxx) W.maxx = x1; if (y1 > W.maxy) W.maxy = y1;
+  }
+  const segsFor = (r, sweep) => {
+    const err = Math.max(extent / 40000, 1e-9);
+    const step = r > err ? 2 * Math.acos(Math.max(-1, 1 - err / r)) : Math.PI / 4;
+    return Math.max(4, Math.min(1024, Math.ceil(Math.abs(sweep) / Math.max(step, 1e-4))));
+  };
+  function arcPts(cx, cy, r, a0, sweep, out_, skipFirst) {
+    const s = segsFor(r, sweep);
+    for (let k = skipFirst ? 1 : 0; k <= s; k++) { const a = a0 + sweep * k / s; out_.push(cx + r * Math.cos(a), cy + r * Math.sin(a)); }
+  }
+  function bulgePts(x1, y1, x2, y2, b, o) {
+    const th = 4 * Math.atan(b), dx = x2 - x1, dy = y2 - y1, c = Math.hypot(dx, dy);
+    if (c < 1e-12 || Math.abs(b) < 1e-9) { o.push(x2, y2); return; }
+    const r = c / (2 * Math.sin(Math.abs(th) / 2)), d = r * Math.cos(Math.abs(th) / 2), sg = b > 0 ? 1 : -1;
+    const cx = (x1 + x2) / 2 - sg * d * dy / c, cy = (y1 + y2) / 2 + sg * d * dx / c;
+    arcPts(cx, cy, r, Math.atan2(y1 - cy, x1 - cx), th, o, true);
+  }
+  function deBoor(p, U, P, Wt, t) {
+    const nC = P.length >> 1; let k = p;
+    while (k < nC - 1 && t >= U[k + 1]) k++;
+    const d = [];
+    for (let j = 0; j <= p; j++) { const idx = Math.min(Math.max(j + k - p, 0), nC - 1), w = Wt ? Wt[idx] : 1; d.push([P[2*idx]*w, P[2*idx+1]*w, w]); }
+    for (let r = 1; r <= p; r++) for (let j = p; j >= r; j--) {
+      const i = j + k - p, den = U[i + p - r + 1] - U[i], a = den === 0 ? 0 : (t - U[i]) / den;
+      d[j] = [(1-a)*d[j-1][0] + a*d[j][0], (1-a)*d[j-1][1] + a*d[j][1], (1-a)*d[j-1][2] + a*d[j][2]];
+    }
+    return [d[p][0] / d[p][2], d[p][1] / d[p][2]];
+  }
+  function colorKey(E, ctxColor) {
+    const tc = gv(E, 420);
+    if (tc !== undefined) return '#' + (parseInt(tc, 10) & 0xFFFFFF).toString(16).padStart(6, '0');
+    const c = gi(E, 62, 256);
+    if (c === 0) return ctxColor || 'L';
+    if (c === 256 || c < 0) return 'L';
+    return 'A' + c;
+  }
+  function addText(layer, ck, M, x, y, h, rot, str, ha, va, wf, lines, lh) {
+    const X = M[0]*x + M[2]*y + M[4], Y = M[1]*x + M[3]*y + M[5];
+    const ux = M[0]*Math.cos(rot) + M[2]*Math.sin(rot), uy = M[1]*Math.cos(rot) + M[3]*Math.sin(rot);
+    const sc = Math.sqrt(Math.abs(M[0]*M[3] - M[1]*M[2])) || 1;
+    if (!str || !Number.isFinite(X) || !Number.isFinite(Y)) return;
+    out.texts.push({layer, ck, x:X, y:Y, h:h*sc, rot:Math.atan2(uy, ux), str, ha, va, wf:wf||1, lines, lh:(lh||0)*sc});
+    if (X < W.minx) W.minx = X; if (X > W.maxx) W.maxx = X; if (Y < W.miny) W.miny = Y; if (Y > W.maxy) W.maxy = Y;
+  }
+  const HA = ['left','center','right','center','center','center'], VA = ['alphabetic','bottom','middle','top'];
+  function emit(E, M, ctxLayer, ctxColor, depth) {
+    if (depth > 16) return;
+    const type = E.type;
+    if (depth === 0 && gi(E, 67, 0) === 1) return;
+    let layer = uniEsc(gs(E, 8, '0'));
+    if (depth > 0 && layer === '0' && ctxLayer) layer = ctxLayer;
+    ensureLayer(layer);
+    const ck = colorKey(E, ctxColor);
+    out.counts.set(type, (out.counts.get(type) || 0) + 1);
+    out.layerUse.set(layer, (out.layerUse.get(layer) || 0) + 1);
+    const flip = gf(E, 230, 1) < 0;
+    const MO = flip ? mul(M, FLIP) : M;
+    switch (type) {
+      case 'LINE': addPoly(layer, ck, M, [gf(E,10), gf(E,20), gf(E,11), gf(E,21)], false); break;
+      case 'LWPOLYLINE': {
+        const vs = [];
+        for (let k = E.s; k < E.e; k++) { const c = codes[k];
+          if (c === 10) vs.push([+vals[k], 0, 0]); else if (c === 20 && vs.length) vs[vs.length-1][1] = +vals[k]; else if (c === 42 && vs.length) vs[vs.length-1][2] = +vals[k]; }
+        if (vs.length < 2) break;
+        const closed = (gi(E, 70) & 1) === 1, pts = [vs[0][0], vs[0][1]];
+        for (let k = 0; k < vs.length - (closed ? 0 : 1); k++) { const a = vs[k], b = vs[(k + 1) % vs.length]; bulgePts(a[0], a[1], b[0], b[1], a[2], pts); }
+        addPoly(layer, ck, MO, pts, false); break;
+      }
+      case 'POLYLINE': {
+        const f = gi(E, 70), V = E.verts || [];
+        if (f & 64) {
+          const P = [], F = [];
+          for (const v of V) { const vf = gi(v, 70); if (vf & 128 && !(vf & 64)) F.push([gi(v,71), gi(v,72), gi(v,73), gi(v,74)]); else P.push([gf(v,10), gf(v,20)]); }
+          for (const fc of F) { const idx = fc.filter(x => x !== 0); for (let k = 0; k < idx.length; k++) { if (idx[k] < 0) continue; const a = P[Math.abs(idx[k]) - 1], b = P[Math.abs(idx[(k+1) % idx.length]) - 1]; if (a && b) addPoly(layer, ck, M, [a[0], a[1], b[0], b[1]], false); } }
+          break;
+        }
+        if (f & 16) {
+          const m = gi(E, 71), nn = gi(E, 72), P = V.map(v => [gf(v,10), gf(v,20)]);
+          for (let r = 0; r < m; r++) { const row = []; for (let c = 0; c < nn; c++) { const p = P[r*nn + c]; if (p) row.push(p[0], p[1]); } addPoly(layer, ck, M, row, (f & 32) === 32); }
+          for (let c = 0; c < nn; c++) { const col = []; for (let r = 0; r < m; r++) { const p = P[r*nn + c]; if (p) col.push(p[0], p[1]); } addPoly(layer, ck, M, col, (f & 1) === 1); }
+          break;
+        }
+        const vs = V.filter(v => !(gi(v, 70) & 16)).map(v => [gf(v,10), gf(v,20), gf(v,42)]);
+        if (vs.length < 2) break;
+        const closed = (f & 1) === 1, pts = [vs[0][0], vs[0][1]];
+        for (let k = 0; k < vs.length - (closed ? 0 : 1); k++) { const a = vs[k], b = vs[(k + 1) % vs.length]; bulgePts(a[0], a[1], b[0], b[1], a[2], pts); }
+        addPoly(layer, ck, (f & 8) ? M : MO, pts, false); break;
+      }
+      case 'CIRCLE': { const pts = []; arcPts(gf(E,10), gf(E,20), gf(E,40), 0, 2*Math.PI, pts, false); addPoly(layer, ck, MO, pts, false); break; }
+      case 'ARC': {
+        let a0 = gf(E,50) * Math.PI / 180, a1 = gf(E,51) * Math.PI / 180; while (a1 <= a0) a1 += 2 * Math.PI;
+        const pts = []; arcPts(gf(E,10), gf(E,20), gf(E,40), a0, a1 - a0, pts, false); addPoly(layer, ck, MO, pts, false); break;
+      }
+      case 'ELLIPSE': {
+        const cx = gf(E,10), cy = gf(E,20), mx = gf(E,11), my = gf(E,21), ra = gf(E,40,1);
+        let t0 = gf(E,41,0), t1 = gf(E,42,2*Math.PI); while (t1 <= t0) t1 += 2 * Math.PI;
+        const nx = flip ? my : -my, ny = flip ? -mx : mx, R = Math.hypot(mx, my), s = segsFor(R, t1 - t0), pts = [];
+        for (let k = 0; k <= s; k++) { const t = t0 + (t1 - t0) * k / s; pts.push(cx + mx*Math.cos(t) + ra*nx*Math.sin(t), cy + my*Math.cos(t) + ra*ny*Math.sin(t)); }
+        addPoly(layer, ck, M, pts, false); break;
+      }
+      case 'SPLINE': {
+        const p = gi(E, 71, 3), U = [], P = [], Wt = [], F = [];
+        for (let k = E.s; k < E.e; k++) { const c = codes[k];
+          if (c === 40) U.push(+vals[k]); else if (c === 41) Wt.push(+vals[k]);
+          else if (c === 10) P.push(+vals[k], 0); else if (c === 20) P[P.length-1] = +vals[k];
+          else if (c === 11) F.push(+vals[k], 0); else if (c === 21) F[F.length-1] = +vals[k]; }
+        const nC = P.length >> 1;
+        if (nC >= p + 1 && U.length === nC + p + 1) {
+          const s = Math.max(24, Math.min(2000, nC * 16)), pts = [], a = U[p], b = U[nC];
+          for (let k = 0; k <= s; k++) { const q = deBoor(p, U, P, Wt.length === nC ? Wt : null, a + (b - a) * Math.min(k / s, 1 - 1e-12)); pts.push(q[0], q[1]); }
+          addPoly(layer, ck, M, pts, false);
+        } else if (F.length >= 4) addPoly(layer, ck, M, F, false);
+        else if (P.length >= 4) addPoly(layer, ck, M, P, false);
+        break;
+      }
+      case 'TEXT': case 'ATTRIB': {
+        if (type === 'ATTRIB' && (gi(E, 70) & 1)) break;
+        const str = pctCodes(uniEsc(gs(E, 1))), h = gf(E, 40, 1), rot = gf(E, 50) * Math.PI / 180;
+        const h72 = gi(E, 72), v73 = gi(E, type === 'ATTRIB' ? 74 : 73);
+        const useAlign = (h72 !== 0 || v73 !== 0) && gv(E, 11) !== undefined;
+        let x = useAlign ? gf(E,11) : gf(E,10), y = useAlign ? gf(E,21) : gf(E,20), va = h72 === 4 ? 'middle' : (VA[v73] || 'alphabetic');
+        if (useAlign && (h72 === 3 || h72 === 5)) { x = (gf(E,10) + gf(E,11)) / 2; y = (gf(E,20) + gf(E,21)) / 2; va = 'alphabetic'; }
+        addText(layer, ck, MO, x, y, h, rot, str, HA[h72] || 'left', va, gf(E,41,1));
+        break;
+      }
+      case 'MTEXT': {
+        let raw = ''; for (let k = E.s; k < E.e; k++) if (codes[k] === 3) raw += vals[k]; const v1 = gv(E, 1); if (v1 !== undefined) raw += v1;
+        const str = cleanMText(raw), h = gf(E, 40, 1), att = gi(E, 71, 1);
+        let rot = gf(E, 50, 0); const dx = gv(E, 11);
+        if (dx !== undefined) rot = Math.atan2(gf(E,21), gf(E,11));
+        const lines = str.split('\n'), lh = h * 1.667 * gf(E, 44, 1);
+        const ha = ['left','center','right'][(att - 1) % 3], va = ['top','middle','bottom'][Math.floor((att - 1) / 3)] || 'top';
+        addText(layer, ck, MO, gf(E,10), gf(E,20), h, rot, str, ha, va, 1, lines, lh);
+        break;
+      }
+      case 'POINT': { const x = gf(E,10), y = gf(E,20); out.points.push({layer, ck, x:M[0]*x+M[2]*y+M[4], y:M[1]*x+M[3]*y+M[5]}); break; }
+      case 'SOLID': case 'TRACE': case '3DFACE': {
+        const q = [[gf(E,10),gf(E,20)],[gf(E,11),gf(E,21)],[gf(E,12),gf(E,22)],[gf(E,13,gf(E,12)),gf(E,23,gf(E,22))]];
+        const ord = type === '3DFACE' ? [0,1,2,3] : [0,1,3,2];
+        const pts = ord.flatMap(k => q[k]);
+        const MM = type === '3DFACE' ? M : MO;
+        addPoly(layer, ck, MM, pts, true);
+        if (type !== '3DFACE') { const ring = []; for (let k = 0; k < 4; k++) { const x = pts[2*k], y = pts[2*k+1]; ring.push(MM[0]*x+MM[2]*y+MM[4], MM[1]*x+MM[3]*y+MM[5]); } out.fills.push({layer, ck, rings:[ring], solid:true}); }
+        break;
+      }
+      case 'INSERT': {
+        const B = doc.blocks.get(gs(E, 2));
+        const icol = ck === 'L' ? 'LAYER:' + layer : ck;
+        if (B) {
+          const ix = gf(E,10), iy = gf(E,20), sx = gf(E,41,1), sy = gf(E,42,1), rot = gf(E,50) * Math.PI / 180;
+          const nc = Math.max(1, gi(E,70,1)), nr = Math.max(1, gi(E,71,1)), cs = gf(E,44), rs = gf(E,45);
+          for (let r = 0; r < Math.min(nr, 200); r++) for (let c = 0; c < Math.min(nc, 200); c++) {
+            const Mi = mul(mul(mul(mul(mul(MO, TR(ix, iy)), RO(rot)), TR(c*cs, r*rs)), SC(sx, sy)), TR(-B.bx, -B.by));
+            for (const be of B.list) emit(be, Mi, layer, icol, depth + 1);
+          }
+        }
+        for (const A of (E.attribs || [])) emit(A, M, layer, icol, depth + 1);
+        break;
+      }
+      case 'DIMENSION': {
+        const B = doc.blocks.get(gs(E, 2));
+        if (B) { const Mi = mul(M, TR(gf(E,12), gf(E,22))); for (const be of B.list) emit(be, Mi, layer, ck === 'L' ? 'LAYER:' + layer : ck, depth + 1); }
+        break;
+      }
+      case 'HATCH': hatch(E, layer, ck, MO); break;
+      case 'ATTDEF': case 'VIEWPORT': case 'SEQEND': break;
+      default: out.skipped.set(type, (out.skipped.get(type) || 0) + 1);
+    }
+  }
+  function hatch(E, layer, ck, M) {
+    const solid = gi(E, 70) === 1; let k = E.s; const e = E.e, rings = [];
+    const seek = c => { while (k < e && codes[k] !== c) k++; return k < e; };
+    const take = c => (seek(c) ? +vals[k++] : NaN);
+    if (!seek(91)) return; const np = +vals[k++];
+    for (let p = 0; p < np; p++) {
+      if (!seek(92)) break; const flags = +vals[k++]; const pts = [];
+      if (flags & 2) {
+        let hasB = 0, closed = 1;
+        while (k < e && codes[k] !== 93) { if (codes[k] === 72) hasB = +vals[k]; if (codes[k] === 73) closed = +vals[k]; k++; }
+        const nv = +vals[k++]; const vs = [];
+        for (let v = 0; v < nv; v++) { const x = take(10), y = take(20); let b = 0; if (hasB && codes[k] === 42) b = +vals[k++]; vs.push([x, y, b]); }
+        if (vs.length) { pts.push(vs[0][0], vs[0][1]); for (let q = 0; q < vs.length; q++) { const a = vs[q], b = vs[(q + 1) % vs.length]; if (q === vs.length - 1 && !closed) break; bulgePts(a[0], a[1], b[0], b[1], a[2], pts); } }
+      } else {
+        const ne = take(93);
+        for (let q = 0; q < ne; q++) {
+          const et = take(72);
+          if (et === 1) { const x1 = take(10), y1 = take(20), x2 = take(11), y2 = take(21); if (!pts.length) pts.push(x1, y1); pts.push(x2, y2); }
+          else if (et === 2 || et === 3) {
+            const cx = take(10), cy = take(20); let mx = 0, my = 0, r = 0;
+            if (et === 3) { mx = take(11); my = take(21); r = take(40); } else r = take(40);
+            let a0 = take(50) * Math.PI / 180, a1 = take(51) * Math.PI / 180; const ccw = (codes[k] === 73) ? +vals[k++] : 1;
+            if (!ccw) { a0 = -a0; a1 = -a1; while (a1 >= a0) a1 -= 2 * Math.PI; } else { while (a1 <= a0) a1 += 2 * Math.PI; }
+            const s = segsFor(et === 2 ? r : Math.hypot(mx, my), a1 - a0);
+            for (let j = 0; j <= s; j++) { const t = a0 + (a1 - a0) * j / s;
+              if (et === 2) pts.push(cx + r * Math.cos(t), cy + r * Math.sin(t));
+              else { const R = Math.hypot(mx, my), ang = Math.atan2(my, mx), ux = Math.cos(ang), uy = Math.sin(ang), A = R, Bm = R * r;
+                const px = A * Math.cos(t), py = Bm * Math.sin(t); pts.push(cx + px*ux - py*uy, cy + px*uy + py*ux); } }
+          } else if (et === 4) {
+            const deg = take(94); take(73); take(74); const nk = take(95), nc = take(96), U = [], P = [];
+            for (let j = 0; j < nk; j++) U.push(take(40));
+            for (let j = 0; j < nc; j++) { P.push(take(10), take(20)); if (codes[k] === 42) k++; }
+            if (nc >= deg + 1 && U.length === nc + deg + 1) { const s = Math.max(16, nc * 12); for (let j = 0; j <= s; j++) { const qq = deBoor(deg, U, P, null, U[deg] + (U[nc] - U[deg]) * Math.min(j / s, 1 - 1e-12)); pts.push(qq[0], qq[1]); } }
+            else for (let j = 0; j < P.length; j++) pts.push(P[j]);
+          }
+        }
+      }
+      if (pts.length >= 6) {
+        addPoly(layer, ck, M, pts, true);
+        const ring = []; for (let j = 0; j < pts.length; j += 2) ring.push(M[0]*pts[j]+M[2]*pts[j+1]+M[4], M[1]*pts[j]+M[3]*pts[j+1]+M[5]);
+        rings.push(ring);
+      }
+    }
+    if (rings.length) out.fills.push({layer, ck, rings, solid});
+  }
+  // rough extent for tessellation tolerance
+  const ex = doc.header['$EXTMIN'], ey = doc.header['$EXTMAX'];
+  if (ex && ey) { const w = Math.abs(+ey[10] - +ex[10]), h = Math.abs(+ey[20] - +ex[20]); if (Number.isFinite(w) && w > 0 && w < 1e12) extent = Math.max(w, h); }
+  if (extent === 1) { let x0 = Infinity, x1 = -Infinity; for (const E of doc.entities.slice(0, 5000)) { const x = parseFloat(gv(E, 10)); if (Number.isFinite(x)) { if (x < x0) x0 = x; if (x > x1) x1 = x; } } if (x1 > x0) extent = x1 - x0; }
+  const I = [1,0,0,1,0,0];
+  for (const E of doc.entities) emit(E, I, null, null, 0);
+  return out;
+}
+
+// ───────────────────────── viewer state ─────────────────────────
+const $ = id => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d'), stage = $('stage');
+let doc = null, geo = null, layerState = new Map(), units = '', fileLabel = '', raster = null, K = 1;
+const view = {cx:0, cy:0, s:1};
+let theme = {}, dirty = true;
+
+function readTheme() {
+  const cs = getComputedStyle(document.documentElement), g = k => cs.getPropertyValue(k).trim();
+  theme = {canvas:g('--canvas'), grid:g('--grid'), gridMajor:g('--grid-major'), ent:g('--ent'), measure:g('--measure'), ink:g('--ink'), muted:g('--muted'), panel:g('--panel'), accent:g('--accent'), fontUI:g('--font-ui'), fontMono:g('--font-mono')};
+  const m = theme.canvas.match(/#([0-9a-f]{6})/i); const v = m ? parseInt(m[1], 16) : 0xffffff;
+  theme.dark = (0.2126*((v>>16)&255) + 0.7152*((v>>8)&255) + 0.0722*(v&255)) < 128;
+  colorCache.clear(); dirty = true;
+}
+const colorCache = new Map();
+function rgbOf(key, layer) {
+  if (key === 'L') { const L = doc.layers.get(layer); if (!L) return null; if (L.tc !== null && L.tc !== undefined) return [(L.tc>>16)&255, (L.tc>>8)&255, L.tc&255]; return L.aci === 7 ? null : ACI[L.aci]; }
+  if (key.startsWith('LAYER:')) return rgbOf('L', key.slice(6));
+  if (key[0] === '#') { const v = parseInt(key.slice(1), 16); return [(v>>16)&255, (v>>8)&255, v&255]; }
+  const a = parseInt(key.slice(1), 10); return a === 7 ? null : (ACI[a] || null);
+}
+function css(key, layer) {
+  const ck = key + '|' + layer; let c = colorCache.get(ck); if (c) return c;
+  const rgb = rgbOf(key, layer);
+  if (!rgb) c = theme.ent;
+  else {
+    let [r, g, b] = rgb; const lum = 0.2126*r + 0.7152*g + 0.0722*b;
+    if (!theme.dark && lum > 165) { const f = 0.55; r *= f; g *= f; b *= f; }
+    if (theme.dark && lum < 55) { const f = 0.55; r += (255 - r) * f; g += (255 - g) * f; b += (255 - b) * f; }
+    c = `rgb(${r|0},${g|0},${b|0})`;
+  }
+  colorCache.set(ck, c); return c;
+}
+const visible = name => { const s = layerState.get(name); return !s || s.vis; };
+
+// ───────────────────────── rendering ─────────────────────────
+function resize() {
+  const r = stage.getBoundingClientRect(), d = window.devicePixelRatio || 1;
+  cv.width = Math.max(1, Math.round(r.width * d)); cv.height = Math.max(1, Math.round(r.height * d)); dirty = true;
+}
+function niceStep(x) { const p = Math.pow(10, Math.floor(Math.log10(x))), m = x / p; return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p; }
+function fmt(v) { const a = Math.abs(v); return a >= 1000 ? v.toFixed(0) : a >= 100 ? v.toFixed(1) : v.toFixed(2); }
+function render() {
+  dirty = false;
+  const d = window.devicePixelRatio || 1, Wc = cv.width / d, Hc = cv.height / d;
+  ctx.setTransform(d, 0, 0, d, 0, 0);
+  ctx.fillStyle = theme.canvas; ctx.fillRect(0, 0, Wc, Hc);
+  if (!geo) return;
+  const s = view.s, ox = Wc / 2 - view.cx * s, oy = Hc / 2 + view.cy * s;
+  const vx0 = -ox / s, vx1 = (Wc - ox) / s, vy0 = (oy - Hc) / s, vy1 = oy / s;
+  // grid
+  const g = niceStep(22 / s);
+  ctx.lineWidth = 1;
+  for (const major of [false, true]) {
+    const st = major ? g * 5 : g; if (st * s < 6) continue;
+    ctx.strokeStyle = major ? theme.gridMajor : theme.grid; ctx.beginPath();
+    for (let x = Math.ceil(vx0 / st) * st; x <= vx1; x += st) { const X = Math.round(x * s + ox) + 0.5; ctx.moveTo(X, 0); ctx.lineTo(X, Hc); }
+    for (let y = Math.ceil(vy0 / st) * st; y <= vy1; y += st) { const Y = Math.round(oy - y * s) + 0.5; ctx.moveTo(0, Y); ctx.lineTo(Wc, Y); }
+    ctx.stroke();
+  }
+  if (raster) { ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(raster.img, ox, oy - raster.h * s, raster.w * s, raster.h * s); }
+  // fills
+  for (const f of geo.fills) {
+    if (!visible(f.layer)) continue;
+    ctx.globalAlpha = f.solid ? 0.85 : 0.13; ctx.fillStyle = css(f.ck, f.layer); ctx.beginPath();
+    for (const r of f.rings) { ctx.moveTo(r[0]*s + ox, oy - r[1]*s); for (let k = 2; k < r.length; k += 2) ctx.lineTo(r[k]*s + ox, oy - r[k+1]*s); ctx.closePath(); }
+    ctx.fill('evenodd');
+  }
+  ctx.globalAlpha = 1;
+  // strokes
+  ctx.lineWidth = 1.15; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  for (const b of geo.batches.values()) {
+    if (!visible(b.layer)) continue;
+    ctx.strokeStyle = css(b.ck, b.layer); ctx.beginPath();
+    const P = b.polys, BB = b.bb;
+    for (let q = 0; q < P.length; q++) {
+      if (BB[4*q] > vx1 || BB[4*q+2] < vx0 || BB[4*q+1] > vy1 || BB[4*q+3] < vy0) continue;
+      const a = P[q]; ctx.moveTo(a[0]*s + ox, oy - a[1]*s);
+      for (let k = 2; k < a.length; k += 2) ctx.lineTo(a[k]*s + ox, oy - a[k+1]*s);
+    }
+    ctx.stroke();
+  }
+  // points
+  for (const p of geo.points) { if (!visible(p.layer)) continue; ctx.fillStyle = css(p.ck, p.layer); ctx.fillRect(p.x*s + ox - 1.5, oy - p.y*s - 1.5, 3, 3); }
+  // texts
+  ctx.textBaseline = 'alphabetic';
+  const font = theme.fontUI;
+  for (const t of geo.texts) {
+    if (!visible(t.layer)) continue;
+    const px = t.h * s; if (px < 2.5) continue;
+    const X = t.x * s + ox, Y = oy - t.y * s; if (X < -2000 || X > Wc + 2000 || Y < -2000 || Y > Hc + 2000) continue;
+    ctx.save(); ctx.translate(X, Y); ctx.rotate(-t.rot); if (t.wf !== 1) ctx.scale(t.wf, 1);
+    ctx.fillStyle = css(t.ck, t.layer); ctx.font = `${(px * 1.4).toFixed(1)}px ${font}`; ctx.textAlign = t.ha;
+    if (t.lines) {
+      const lh = t.lh * s, nL = t.lines.length, Htot = (nL - 1) * lh + px;
+      const top = t.va === 'top' ? 0 : t.va === 'middle' ? -Htot / 2 : -Htot;
+      for (let k = 0; k < nL; k++) ctx.fillText(t.lines[k], 0, top + px + k * lh);
+    } else { ctx.textBaseline = t.va; ctx.fillText(t.str, 0, 0); ctx.textBaseline = 'alphabetic'; }
+    ctx.restore();
+  }
+  // measure overlay
+  if (measure.on) {
+    const A = measure.a, B = measure.b || measure.hover;
+    ctx.strokeStyle = theme.measure; ctx.fillStyle = theme.measure; ctx.lineWidth = 1.6;
+    if (A && B) { ctx.setLineDash([6, 4]); ctx.beginPath(); ctx.moveTo(A[0]*s + ox, oy - A[1]*s); ctx.lineTo(B[0]*s + ox, oy - B[1]*s); ctx.stroke(); ctx.setLineDash([]);
+      const dist = Math.hypot(B[0] - A[0], B[1] - A[1]); const mx = (A[0] + B[0]) / 2 * s + ox, my = oy - (A[1] + B[1]) / 2 * s;
+      const label = `${fmt(dist * K)} ${units}`.trim(); ctx.font = `600 13px ${font}`; const w = ctx.measureText(label).width + 12;
+      ctx.fillStyle = theme.panel; ctx.fillRect(mx - w/2, my - 22, w, 20); ctx.strokeRect(mx - w/2 + .5, my - 21.5, w - 1, 19);
+      ctx.fillStyle = theme.measure; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, mx, my - 12); ctx.textBaseline = 'alphabetic'; }
+    for (const P of [A, measure.b]) if (P) { ctx.fillRect(P[0]*s + ox - 3.5, oy - P[1]*s - 3.5, 7, 7); }
+    if (measure.snap) { const S = measure.snap; ctx.strokeStyle = theme.measure; ctx.lineWidth = 1.5; ctx.strokeRect(S[0]*s + ox - 6, oy - S[1]*s - 6, 12, 12); }
+  }
+  // scale bar
+  const L = niceStep(120 / s * K), Lp = L / K * s, x0 = 14, y0 = Hc - 24;
+  ctx.fillStyle = theme.panel; ctx.globalAlpha = .88; ctx.fillRect(x0 - 8, y0 - 22, Lp + 70, 34); ctx.globalAlpha = 1;
+  ctx.strokeStyle = theme.ink; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x0, y0 - 5); ctx.lineTo(x0, y0); ctx.lineTo(x0 + Lp, y0); ctx.lineTo(x0 + Lp, y0 - 5); ctx.moveTo(x0 + Lp/2, y0 - 3); ctx.lineTo(x0 + Lp/2, y0); ctx.stroke();
+  ctx.fillStyle = theme.ink; ctx.font = `500 11.5px ${theme.fontMono}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText(`${+L.toPrecision(3)} ${units || '단위'}`, x0 + Lp + 8, y0 + 1);
+}
+function loop() { if (dirty) render(); requestAnimationFrame(loop); }
+
+function bboxVisible() {
+  if (raster) return [0, 0, raster.w, raster.h];
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; const cxs = [], cys = [];
+  for (const b of geo.batches.values()) { if (!visible(b.layer)) continue; const BB = b.bb;
+    for (let q = 0; q < BB.length; q += 4) { if (BB[q] < x0) x0 = BB[q]; if (BB[q+1] < y0) y0 = BB[q+1]; if (BB[q+2] > x1) x1 = BB[q+2]; if (BB[q+3] > y1) y1 = BB[q+3];
+      if (cxs.length < 200000) { cxs.push((BB[q] + BB[q+2]) / 2); cys.push((BB[q+1] + BB[q+3]) / 2); } } }
+  for (const t of geo.texts) if (visible(t.layer)) { if (t.x < x0) x0 = t.x; if (t.x > x1) x1 = t.x; if (t.y < y0) y0 = t.y; if (t.y > y1) y1 = t.y; cxs.push(t.x); cys.push(t.y); }
+  if (!Number.isFinite(x0)) return null;
+  if (cxs.length > 50) {
+    const q = (arr, p) => { const a = Float64Array.from(arr).sort(); return a[Math.floor(p * (a.length - 1))]; };
+    const tx0 = q(cxs, .005), tx1 = q(cxs, .995), ty0 = q(cys, .005), ty1 = q(cys, .995);
+    const tw = Math.max(tx1 - tx0, 1e-9), th = Math.max(ty1 - ty0, 1e-9);
+    if ((x1 - x0) > 25 * tw || (y1 - y0) > 25 * th) { const px = tw * .08, py = th * .08; return [tx0 - px, ty0 - py, tx1 + px, ty1 + py]; }
+  }
+  return [x0, y0, x1, y1];
+}
+function fit() {
+  if (!geo) return; const bb = bboxVisible(); if (!bb) return;
+  const r = stage.getBoundingClientRect(), w = Math.max(bb[2] - bb[0], 1e-9), h = Math.max(bb[3] - bb[1], 1e-9);
+  view.s = Math.min(r.width / (w * 1.08), r.height / (h * 1.08)); view.cx = (bb[0] + bb[2]) / 2; view.cy = (bb[1] + bb[3]) / 2; dirty = true;
+}
+
+// ───────────────────────── snapping index ─────────────────────────
+let snapIdx = null;
+function buildSnap() {
+  snapIdx = null; if (!geo || geo.nverts > 3e6) return;
+  const e = geo.ext; if (!Number.isFinite(e.minx)) return;
+  const G = 384, w = Math.max(e.maxx - e.minx, 1e-9), h = Math.max(e.maxy - e.miny, 1e-9), cell = Math.max(w, h) / G;
+  const gx = Math.ceil(w / cell) + 1, gy = Math.ceil(h / cell) + 1, cnt = new Int32Array(gx * gy + 1);
+  const pts = [], lay = [];
+  for (const b of geo.batches.values()) for (const a of b.polys) { const ends = a.length > 128 ? [0, a.length - 2] : null;
+    const idxs = ends || Array.from({length: a.length >> 1}, (_, k) => 2 * k);
+    for (const k of idxs) { pts.push(a[k], a[k+1]); lay.push(b.layer); } }
+  const P = Float64Array.from(pts), m = P.length >> 1, cellOf = new Int32Array(m);
+  for (let k = 0; k < m; k++) { const c = Math.floor((P[2*k] - e.minx) / cell) + gx * Math.floor((P[2*k+1] - e.miny) / cell); cellOf[k] = c; cnt[c + 1]++; }
+  for (let k = 1; k < cnt.length; k++) cnt[k] += cnt[k - 1];
+  const order = new Int32Array(m), fill = cnt.slice();
+  for (let k = 0; k < m; k++) order[fill[cellOf[k]]++] = k;
+  snapIdx = {P, lay, cnt, order, gx, gy, cell, x0:e.minx, y0:e.miny};
+}
+function findSnap(x, y, rWorld) {
+  const S = snapIdx; if (!S) return null; const span = Math.ceil(rWorld / S.cell); if (span > 40) return null;
+  const cx = Math.floor((x - S.x0) / S.cell), cy = Math.floor((y - S.y0) / S.cell); let best = null, bd = rWorld * rWorld;
+  for (let j = Math.max(0, cy - span); j <= Math.min(S.gy - 1, cy + span); j++) for (let i = Math.max(0, cx - span); i <= Math.min(S.gx - 1, cx + span); i++) {
+    const c = i + S.gx * j; for (let q = S.cnt[c]; q < S.cnt[c + 1]; q++) { const k = S.order[q]; if (!visible(S.lay[k])) continue;
+      const dx = S.P[2*k] - x, dy = S.P[2*k+1] - y, dd = dx*dx + dy*dy; if (dd < bd) { bd = dd; best = [S.P[2*k], S.P[2*k+1]]; } } }
+  return best;
+}
+
+// ───────────────────────── UI: layers & info ─────────────────────────
+function renderLayers() {
+  const list = $('layerList'); list.textContent = '';
+  const names = [...doc.layers.keys()].filter(n => (geo.layerUse.get(n) || 0) > 0).sort((a, b) => a.localeCompare(b, 'ko', {numeric:true}));
+  $('layerCount').textContent = names.length;
+  $('noLayers').hidden = !raster; $('pageBox').hidden = !(raster && raster.kind === 'pdf');
+  names.forEach((name, i) => {
+    const L = doc.layers.get(name), st = layerState.get(name);
+    const li = document.createElement('li'); li.className = 'lay' + (st.vis ? '' : ' off');
+    const lab = document.createElement('label'); const cb = document.createElement('input'); cb.type = 'checkbox'; cb.id = 'ly' + i; cb.checked = st.vis;
+    cb.addEventListener('change', () => { st.vis = cb.checked; li.classList.toggle('off', !cb.checked); dirty = true; });
+    const sw = document.createElement('span'); sw.className = 'sw'; sw.style.background = css('L', name);
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = name; nm.title = name + (L.frozen ? ' (동결)' : '') + (!L.on ? ' (원본에서 꺼짐)' : '');
+    const ct = document.createElement('span'); ct.className = 'ct'; ct.textContent = (geo.layerUse.get(name) || 0).toLocaleString();
+    lab.append(cb, sw, nm); li.append(lab, ct); list.append(li);
+  });
+}
+function renderInfo(sizeBytes) {
+  if (raster) {
+    const rows = [['형식', raster.kindLabel], ['단위', units + (K !== 1 ? ' (축척 보정)' : '')], ['크기', `${fmt(raster.w * K)} × ${fmt(raster.h * K)} ${units}`]];
+    if (sizeBytes) rows.push(['파일', `${(sizeBytes / 1024).toFixed(0)} KB`]);
+    const dl = $('info'); dl.textContent = '';
+    for (const [k, v] of rows) { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = k; dd.textContent = v; dl.append(dt, dd); }
+    return;
+  }
+  const e = bboxVisible() || [0, 0, 0, 0], ver = (doc.header.$ACADVER || {})[1] || '';
+  const total = [...geo.counts.values()].reduce((a, b) => a + b, 0);
+  const top = [...geo.counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, v]) => `${k} ${v.toLocaleString()}`).join(' · ');
+  const skipped = [...geo.skipped.keys()].join(', ');
+  const rows = [['버전', ver ? `${VERS[ver] ? 'AutoCAD ' + VERS[ver] : ver} (${ver})` : '—'], ['단위', units || '지정 안 됨'],
+    ['크기', `${fmt((e[2] - e[0]) * K)} × ${fmt((e[3] - e[1]) * K)} ${units}${K !== 1 ? ' (축척 보정)' : ''}`.trim()], ['객체', `${total.toLocaleString()}개`], ['구성', top || '—']];
+  if (sizeBytes) rows.push(['파일', `${(sizeBytes / 1024).toFixed(0)} KB`]);
+  if (skipped) rows.push(['미표시', skipped]);
+  const dl = $('info'); dl.textContent = '';
+  for (const [k, v] of rows) { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = k; dd.textContent = v; dl.append(dt, dd); }
+}
+let toastTimer = 0;
+function toast(msg, ms = 5200) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, ms); }
+
+function loadText(text, name, sizeBytes, isSample) {
+  let d, g;
+  try { d = parseDXF(text); g = build(d); }
+  catch (err) { toast('파일을 읽지 못했어요: ' + (err && err.message ? err.message : err)); return false; }
+  if (!g.batches.size && !g.texts.length && !g.fills.length) { toast('그릴 수 있는 객체가 없어요. 모델 공간이 비어 있거나 지원하지 않는 형식이에요.'); return false; }
+  doc = d; geo = g; layerState = new Map(); raster = null; K = 1; lastSize = sizeBytes;
+  for (const [n, L] of doc.layers) layerState.set(n, {vis: L.on && !L.frozen});
+  const anyVisible = [...geo.layerUse.keys()].some(n => layerState.get(n).vis);
+  const hiddenCount = [...geo.layerUse.keys()].filter(n => !layerState.get(n).vis).length;
+  if (!anyVisible) { for (const n of geo.layerUse.keys()) layerState.get(n).vis = true; toast(`원본에서 모든 레이어가 꺼져 있어서 전부 켜서 보여드려요 (${hiddenCount}개).`); }
+  else if (hiddenCount) toast(`원본에서 꺼진 레이어 ${hiddenCount}개는 숨겨 두었어요. 오른쪽 목록에서 켤 수 있어요.`);
+  const iu = parseInt((doc.header.$INSUNITS || {})[70] || '0', 10); units = UNITS[iu] || '';
+  fileLabel = name; $('fileName').textContent = name; $('fileTag').hidden = !isSample;
+  measure.a = measure.b = measure.hover = measure.snap = null; $('measureOut').hidden = true;
+  colorCache.clear(); renderLayers(); fit(); renderInfo(sizeBytes); buildSnap(); dirty = true; return true;
+}
+function setRaster(r, name, size, unitLabel) {
+  raster = r; K = 1; lastSize = size; units = unitLabel;
+  doc = {layers:new Map(), header:{}};
+  geo = {batches:new Map(), fills:[], texts:[], points:[], counts:new Map(), skipped:new Map(), layerUse:new Map(), nverts:0, ext:{minx:0, miny:0, maxx:r.w, maxy:r.h}};
+  layerState = new Map(); snapIdx = null; fileLabel = name; $('fileName').textContent = name; $('fileTag').hidden = true;
+  setMeasure(false); renderLayers(); fit(); renderInfo(size); dirty = true;
+}
+async function loadImage(buf, name, size) {
+  const bmp = await createImageBitmap(new Blob([buf]));
+  setRaster({kind:'image', kindLabel:`이미지 · ${bmp.width} × ${bmp.height} px`, img:bmp, w:bmp.width, h:bmp.height}, name, size, 'px');
+}
+async function loadSvg(buf, name, size) {
+  const url = URL.createObjectURL(new Blob([buf], {type:'image/svg+xml'})), im = new Image();
+  await new Promise((res, rej) => { im.onload = res; im.onerror = () => rej(new Error('SVG를 읽지 못했어요.')); im.src = url; });
+  let w = im.naturalWidth, h = im.naturalHeight; if (!w || !h) { w = 1000; h = 1000; }
+  setRaster({kind:'svg', kindLabel:'SVG', img:im, w, h}, name, size, 'px');
+}
+let pdfReady = null;
+function pdfjs() {
+  if (!pdfReady) pdfReady = (async () => {
+    const bin = atob($('pdfWorker').textContent.trim()), u8 = new Uint8Array(bin.length);
+    for (let k = 0; k < bin.length; k++) u8[k] = bin.charCodeAt(k);
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(new Blob([u8], {type:'text/javascript'}));
+    return window.pdfjsLib;
+  })();
+  return pdfReady;
+}
+async function loadPdf(buf, name, size) {
+  toast('PDF를 여는 중이에요…', 60000);
+  const lib = await pdfjs(); const pdf = await lib.getDocument({data:new Uint8Array(buf)}).promise;
+  const sel = $('pageSel'); sel.textContent = '';
+  for (let p = 1; p <= pdf.numPages; p++) { const o = document.createElement('option'); o.value = p; o.textContent = `${p} / ${pdf.numPages}`; sel.append(o); }
+  await showPdfPage(pdf, 1, name, size); $('toast').hidden = true;
+}
+async function showPdfPage(pdf, no, name, size) {
+  const page = await pdf.getPage(no), v1 = page.getViewport({scale:1});
+  const sc = Math.min(4096 / Math.max(v1.width, v1.height), 10), vp = page.getViewport({scale:sc});
+  const c = document.createElement('canvas'); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+  const cx = c.getContext('2d'); cx.fillStyle = '#ffffff'; cx.fillRect(0, 0, c.width, c.height);
+  await page.render({canvasContext:cx, viewport:vp}).promise;
+  const mm = 25.4 / 72;
+  setRaster({kind:'pdf', kindLabel:`PDF · ${no} / ${pdf.numPages}쪽`, img:c, w:v1.width * mm, h:v1.height * mm, pdf, name, size}, name, size, 'mm');
+  $('pageSel').value = String(no);
+}
+let enginePromise = null;
+function engine() {
+  if (!enginePromise) enginePromise = (async () => {
+    const b64 = $('wasmGz').textContent.trim(), bin = atob(b64), u8 = new Uint8Array(bin.length);
+    for (let k = 0; k < bin.length; k++) u8[k] = bin.charCodeAt(k);
+    const stream = new Blob([u8]).stream().pipeThrough(new DecompressionStream('gzip'));
+    const wasm = new Uint8Array(await new Response(stream).arrayBuffer());
+    return await window.DwgEngine.init(wasm);
+  })().catch(e => { enginePromise = null; throw e; });
+  return enginePromise;
+}
+async function loadFile(file) {
+  if (!file) return;
+  let buf;
+  try { buf = await file.arrayBuffer(); } catch (e) { toast('파일을 읽지 못했어요. 다시 시도해 주세요.'); return; }
+  const head = new TextDecoder('windows-1252').decode(new Uint8Array(buf, 0, Math.min(6, buf.byteLength)));
+  const b8 = new Uint8Array(buf, 0, Math.min(16, buf.byteLength));
+  const txtHead = new TextDecoder('utf-8').decode(new Uint8Array(buf, 0, Math.min(2000, buf.byteLength)));
+  try {
+    if (head.startsWith('%PDF')) return await loadPdf(buf, file.name, file.size);
+    if (/\.svg$/i.test(file.name) || /<svg[\s>]/i.test(txtHead)) return await loadSvg(buf, file.name, file.size);
+    if ((b8[0] === 0x89 && b8[1] === 0x50) || (b8[0] === 0xFF && b8[1] === 0xD8) || head.startsWith('GIF8') || /\.(png|jpe?g|webp|gif)$/i.test(file.name)) return await loadImage(buf, file.name, file.size);
+  } catch (e) { toast('파일을 열지 못했어요: ' + (e && e.message ? e.message : e)); return; }
+  if (/^AC10\d\d/.test(head)) {
+    toast('DWG를 변환하는 중이에요… 처음 한 번은 몇 초 걸려요.', 120000);
+    try {
+      const lib = await engine();
+      const dxf = lib.dwg_write_dxf(buf);
+      if (!dxf || !dxf.length) throw new Error('이 DWG는 변환하지 못했어요. CAD에서 DXF로 저장해 열어 주세요.');
+      $('toast').hidden = true;
+      loadText(decodeDXF(dxf.buffer.slice(dxf.byteOffset, dxf.byteOffset + dxf.byteLength)), file.name, file.size, false);
+    } catch (e) { toast('DWG를 열지 못했어요: ' + (e && e.message ? e.message : e)); }
+    return;
+  }
+  try { loadText(decodeDXF(buf), file.name, file.size, false); } catch (err) { toast(err.message || String(err)); }
+}
+
+// ───────────────────────── interaction ─────────────────────────
+const measure = {on:false, a:null, b:null, hover:null, snap:null, calib:false};
+let lastSize = 0;
+const ptrs = new Map(); let panStart = null, pinch = null, downAt = null, moved = false;
+function toWorld(ev) { const r = cv.getBoundingClientRect(), d = window.devicePixelRatio || 1, Wc = cv.width / d, Hc = cv.height / d;
+  const sx = ev.clientX - r.left, sy = ev.clientY - r.top; return [(sx - Wc / 2) / view.s + view.cx, (Hc / 2 - sy) / view.s + view.cy, sx, sy]; }
+function updateCoord(w) { $('coord').textContent = `X ${fmt(w[0] * K)}   Y ${fmt(w[1] * K)}${units ? '  ' + units : ''}`; }
+function setMeasure(on, calib = false) { measure.on = on; measure.calib = on && calib; $('measureBtn').setAttribute('aria-pressed', String(on && !calib)); $('calibBtn').setAttribute('aria-pressed', String(on && calib)); $('calibForm').hidden = true; measure.a = measure.b = measure.hover = measure.snap = null; $('measureOut').hidden = true; dirty = true; }
+function measureText() { const A = measure.a, B = measure.b || measure.hover; if (!A || !B) return;
+  const dx = B[0] - A[0], dy = B[1] - A[1], d = Math.hypot(dx, dy); const o = $('measureOut'); o.hidden = false;
+  o.textContent = `거리 ${fmt(d * K)}${units ? ' ' + units : ''}   ΔX ${fmt(dx * K)}   ΔY ${fmt(dy * K)}`; }
+
+cv.addEventListener('pointerdown', ev => {
+  cv.setPointerCapture(ev.pointerId); ptrs.set(ev.pointerId, [ev.clientX, ev.clientY]);
+  if (ptrs.size === 1) { panStart = {x:ev.clientX, y:ev.clientY, cx:view.cx, cy:view.cy}; downAt = [ev.clientX, ev.clientY]; moved = false; }
+  else if (ptrs.size === 2) { const [p, q] = [...ptrs.values()]; pinch = {d:Math.hypot(p[0]-q[0], p[1]-q[1]), s:view.s, cx:view.cx, cy:view.cy, mx:(p[0]+q[0])/2, my:(p[1]+q[1])/2}; panStart = null; moved = true; }
+});
+cv.addEventListener('pointermove', ev => {
+  const w = toWorld(ev); updateCoord(w);
+  if (ptrs.has(ev.pointerId)) ptrs.set(ev.pointerId, [ev.clientX, ev.clientY]);
+  if (pinch && ptrs.size === 2) {
+    const [p, q] = [...ptrs.values()], d = Math.hypot(p[0]-q[0], p[1]-q[1]), r = cv.getBoundingClientRect();
+    const ns = Math.min(Math.max(pinch.s * d / Math.max(pinch.d, 1), 1e-9), 1e9);
+    const mx = (p[0]+q[0])/2 - r.left, my = (p[1]+q[1])/2 - r.top, mx0 = pinch.mx - r.left, my0 = pinch.my - r.top;
+    const wx = (mx0 - r.width/2) / pinch.s + pinch.cx, wy = (r.height/2 - my0) / pinch.s + pinch.cy;
+    view.s = ns; view.cx = wx - (mx - r.width/2) / ns; view.cy = wy - (r.height/2 - my) / ns; dirty = true; return;
+  }
+  if (panStart && ptrs.size === 1) {
+    const dx = ev.clientX - panStart.x, dy = ev.clientY - panStart.y;
+    if (!moved && Math.hypot(dx, dy) > 4) { moved = true; stage.classList.add('panning'); }
+    if (moved) { view.cx = panStart.cx - dx / view.s; view.cy = panStart.cy + dy / view.s; dirty = true; }
+  }
+  if (measure.on && !moved) {
+    measure.snap = findSnap(w[0], w[1], 10 / view.s); measure.hover = measure.snap || [w[0], w[1]];
+    if (measure.a && !measure.b) measureText(); dirty = true;
+  }
+});
+function endPtr(ev) {
+  const wasTap = ptrs.size === 1 && !moved && downAt;
+  ptrs.delete(ev.pointerId); if (ptrs.size < 2) pinch = null;
+  if (ptrs.size === 0) { stage.classList.remove('panning'); panStart = null; }
+  if (wasTap && measure.on && ev.type === 'pointerup') {
+    const w = toWorld(ev), sn = findSnap(w[0], w[1], (ev.pointerType === 'touch' ? 22 : 10) / view.s), P = sn || [w[0], w[1]];
+    if (!measure.a || measure.b) { measure.a = P; measure.b = null; $('measureOut').hidden = true; $('calibForm').hidden = true; } else { measure.b = P; measureText(); if (measure.calib) { $('calibForm').hidden = false; const f = $('calibLen'); f.value = ''; f.focus(); } }
+    dirty = true;
+  }
+}
+cv.addEventListener('pointerup', endPtr); cv.addEventListener('pointercancel', endPtr);
+cv.addEventListener('pointerleave', () => { measure.snap = null; dirty = true; });
+cv.addEventListener('wheel', ev => {
+  ev.preventDefault(); const w = toWorld(ev), f = Math.exp(-ev.deltaY * (ev.deltaMode === 1 ? 0.05 : 0.0016));
+  const ns = Math.min(Math.max(view.s * f, 1e-9), 1e9), r = cv.getBoundingClientRect();
+  view.s = ns; view.cx = w[0] - (w[2] - r.width / 2) / ns; view.cy = w[1] - (r.height / 2 - w[3]) / ns; dirty = true;
+}, {passive:false});
+cv.addEventListener('dblclick', () => fit());
+window.addEventListener('keydown', ev => {
+  if (ev.key === 'Escape' && !aboutEl.hidden) { closeAbout(); return; }
+  if (!aboutEl.hidden) return;
+  if (ev.target && /input|textarea|select/i.test(ev.target.tagName)) return;
+  if (ev.key === 'f' || ev.key === 'F') fit();
+  else if (ev.key === 'm' || ev.key === 'M') setMeasure(!measure.on);
+  else if (ev.key === 'Escape') { if (measure.on) { measure.a = measure.b = null; $('measureOut').hidden = true; dirty = true; } }
+});
+$('fitBtn').addEventListener('click', fit);
+const aboutEl = $('about');
+function openAbout() { aboutEl.hidden = false; $('aboutClose').focus(); }
+function closeAbout() { aboutEl.hidden = true; $('aboutBtn').focus(); }
+$('aboutBtn').addEventListener('click', openAbout);
+$('aboutClose').addEventListener('click', closeAbout);
+aboutEl.addEventListener('click', ev => { if (ev.target === aboutEl) closeAbout(); });
+$('measureBtn').addEventListener('click', () => setMeasure(!(measure.on && !measure.calib)));
+$('calibBtn').addEventListener('click', () => { const on = !(measure.on && measure.calib); setMeasure(on, on); if (on) toast('길이를 아는 두 점을 차례로 클릭하세요.', 4000); });
+$('calibCancel').addEventListener('click', () => setMeasure(false));
+$('calibForm').addEventListener('submit', ev => { ev.preventDefault();
+  const len = parseFloat($('calibLen').value), A = measure.a, B = measure.b; if (!A || !B || !(len > 0)) return;
+  const d = Math.hypot(B[0] - A[0], B[1] - A[1]); if (d <= 0) return;
+  K = len / d; units = $('calibUnit').value; setMeasure(false); renderInfo(lastSize); dirty = true;
+  toast(`축척을 맞췄어요. 이제 좌표와 거리가 ${units} 단위로 표시돼요.`, 4000); });
+$('pageSel').addEventListener('change', ev => { if (raster && raster.pdf) showPdfPage(raster.pdf, +ev.target.value, raster.name, raster.size); });
+$('openBtn').addEventListener('click', () => $('fileInput').click());
+$('fileInput').addEventListener('change', ev => { loadFile(ev.target.files[0]); ev.target.value = ''; });
+$('allOn').addEventListener('click', () => { for (const s of layerState.values()) s.vis = true; renderLayers(); dirty = true; });
+$('allOff').addEventListener('click', () => { for (const s of layerState.values()) s.vis = false; renderLayers(); dirty = true; });
+const sideEl = $('side'), mq = window.matchMedia('(max-width: 760px)');
+function syncSide() { const narrow = mq.matches; if (!narrow) sideEl.hidden = false; else if (!$('layersBtn').dataset.open) sideEl.hidden = true; }
+$('layersBtn').addEventListener('click', () => { const open = sideEl.hidden; sideEl.hidden = !open; $('layersBtn').dataset.open = open ? '1' : ''; $('layersBtn').setAttribute('aria-expanded', String(open)); });
+mq.addEventListener('change', syncSide);
+// drag & drop
+let dragDepth = 0;
+stage.addEventListener('dragenter', ev => { ev.preventDefault(); dragDepth++; $('drop').hidden = false; });
+stage.addEventListener('dragover', ev => { ev.preventDefault(); });
+stage.addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; $('drop').hidden = true; } });
+stage.addEventListener('drop', ev => { ev.preventDefault(); dragDepth = 0; $('drop').hidden = true; const f = ev.dataTransfer && ev.dataTransfer.files[0]; loadFile(f); });
+// theme
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readTheme(); if (geo) renderLayers(); });
+new MutationObserver(() => { readTheme(); if (geo) renderLayers(); }).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+new ResizeObserver(() => { const keep = geo && view.s; resize(); if (!keep) fit(); }).observe(stage);
+
+// ───────────────────────── boot ─────────────────────────
+readTheme(); resize(); syncSide();
+const sample = $('sampleDxf');
+loadText(sample.textContent.replace(/^\n/, ''), sample.dataset.name, new Blob([sample.textContent]).size, true);
+requestAnimationFrame(loop);
+window.__dxfViewer = {parseDXF, build, decodeDXF, state:() => ({geo, doc, view, units})};
+})();
+</script>

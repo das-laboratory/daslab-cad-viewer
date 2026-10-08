@@ -1,0 +1,23 @@
+{
+  "name": "daslab-cad-viewer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DAS Lab 도면 뷰어 — 설치 없이 브라우저에서 DWG · DXF · PDF · SVG · 이미지 도면을 보는 단일 HTML 뷰어",
+  "license": "GPL-3.0-or-later",
+  "author": "주식회사 다스랩 (DAS Lab)",
+  "homepage": "https://das-laboratory.github.io/daslab-cad-viewer/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/das-laboratory/daslab-cad-viewer.git"
+  },
+  "dependencies": {
+    "@mlightcad/libredwg-web": "0.7.15",
+    "pdfjs-dist": "3.11.174"
+  },
+  "devDependencies": {
+    "esbuild": "0.24.2"
+  },
+  "scripts": {
+    "build": "python3 build.py"
+  }
+}
