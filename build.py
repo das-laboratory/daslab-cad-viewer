@@ -2,8 +2,8 @@
 """DAS Lab 도면 뷰어 빌드 — src/viewer.html 과 의존성을 HTML 파일 하나로 묶습니다.
 
 사용법:  npm install  →  python3 build.py
-결과물:  dist/daslab-cad-viewer.html   더블클릭으로 여는 단독 실행 파일 (Releases 배포용)
-         docs/index.html               GitHub Pages 웹 버전 (위와 같은 파일)
+결과물:  dist/daslab-cad-viewer.html   더블클릭으로 여는 단독 실행 파일
+         dist/site/                    웹 버전 (index.html · CNAME · .nojekyll) — scripts/publish_site.sh 가 gh-pages 브랜치로 올림
          dist/artifact-body.html       doctype 없이 본문만 (웹 게시 서비스용)
 
 Copyright (C) 2026 주식회사 다스랩 (DAS Lab) — GPL-3.0-or-later
@@ -14,7 +14,8 @@ ROOT = pathlib.Path(__file__).resolve().parent
 NM = ROOT / 'node_modules'
 OUT_NAME = 'daslab-cad-viewer.html'
 SOURCE_URL = 'https://github.com/das-laboratory/daslab-cad-viewer'
-SITE_URL = 'https://das-laboratory.github.io/daslab-cad-viewer/'
+SITE_DOMAIN = 'cad-viewer.daslab.co.kr'
+SITE_URL = f'https://{SITE_DOMAIN}/'
 DESCRIPTION = '설치 없이 브라우저에서 DWG · DXF · PDF · SVG · 이미지 도면을 여는 무료 뷰어. 파일은 기기 안에서만 처리돼요.'
 
 ENGINE_BANNER = ('/*! libredwg-web 0.7.15 (GPL-3.0) (c) MLight Lee; LibreDWG (GPL-3.0-or-later) '
@@ -32,7 +33,8 @@ def bundle_engine(out: pathlib.Path) -> str:
 def main() -> None:
     dist = ROOT / 'dist'
     dist.mkdir(exist_ok=True)
-    (ROOT / 'docs').mkdir(exist_ok=True)
+    site = dist / 'site'
+    site.mkdir(exist_ok=True)
     tpl = (ROOT / 'src' / 'viewer.html').read_text(encoding='utf-8')
 
     engine = bundle_engine(dist / 'dwg-engine.js')
@@ -81,8 +83,10 @@ def main() -> None:
             '</head>\n<body>\n')
     doc = head + body + '\n</body>\n</html>\n'
     (dist / OUT_NAME).write_text(doc, encoding='utf-8')
-    (ROOT / 'docs' / 'index.html').write_text(doc, encoding='utf-8')
-    print(f'built dist/{OUT_NAME} and docs/index.html ({len(doc.encode()) / 1e6:.2f} MB)')
+    (site / 'index.html').write_text(doc, encoding='utf-8')
+    (site / '.nojekyll').write_text('', encoding='utf-8')
+    (site / 'CNAME').write_text(SITE_DOMAIN + '\n', encoding='utf-8')
+    print(f'built dist/{OUT_NAME} and dist/site/ ({len(doc.encode()) / 1e6:.2f} MB)')
 
 
 if __name__ == '__main__':

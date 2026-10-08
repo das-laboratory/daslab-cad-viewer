@@ -3,8 +3,8 @@
 설치 없이 브라우저에서 **DWG · DXF · PDF · SVG · 이미지** 도면을 여는 무료 뷰어입니다.
 HTML 파일 하나로 동작하고, 인터넷 없이도 열리며, 도면 파일은 사용자 기기 안에서만 처리됩니다.
 
-- **웹에서 바로 쓰기:** https://das-laboratory.github.io/daslab-cad-viewer/
-- **파일로 받기 (오프라인용):** [Releases](https://github.com/das-laboratory/daslab-cad-viewer/releases/latest)에서 `daslab-cad-viewer.html`을 받아 더블클릭
+- **웹에서 바로 쓰기:** https://cad-viewer.daslab.co.kr
+- **파일로 받기 (오프라인용):** 웹 버전 상단의 ‘파일로 받기’ 버튼 → 받은 `daslab-cad-viewer.html`을 더블클릭
 
 만든 곳: [DAS Lab](https://daslab.co.kr) · Instagram [@das_laboratory](https://www.instagram.com/das_laboratory/)
 
@@ -26,8 +26,10 @@ python3 build.py
 
 | 결과물 | 용도 |
 |---|---|
-| `dist/daslab-cad-viewer.html` | 단독 실행 파일 (Releases에 올리는 파일) |
-| `docs/index.html` | GitHub Pages 웹 버전 (위와 같은 파일) |
+| `dist/daslab-cad-viewer.html` | 단독 실행 파일 |
+| `dist/site/` | 웹 버전 (`index.html`, `CNAME`, `.nojekyll`) |
+
+웹 버전 배포는 `bash scripts/publish_site.sh` 한 줄입니다. 빌드한 `dist/site/`를 `gh-pages` 브랜치에 올리고, GitHub Pages가 cad-viewer.daslab.co.kr 로 서비스합니다.
 
 ## 구성
 
@@ -37,6 +39,8 @@ python3 build.py
 | `src/entry.mjs` | DWG 엔진(libredwg-web) 번들 진입점 |
 | `assets/` | DAS Lab 로고, 예시 도면 |
 | `build.py` | 의존성을 HTML 하나로 묶는 빌드 스크립트 |
+| `scripts/publish_site.sh` | 웹 버전을 `gh-pages` 브랜치에 배포 |
+| `third_party/` | DWG 엔진 원본 소스 보관본 (GPLv3 제6조) |
 | `LICENSE` | GNU GPL v3 전문 |
 | `THIRD_PARTY_NOTICES.md` | 함께 쓴 오픈소스 고지 |
 
@@ -60,5 +64,6 @@ DWG 읽기에 GPL 라이선스인 LibreDWG를 쓰기 때문에 뷰어 전체가 
 | libredwg-web 0.7.15 (LibreDWG 포함) | https://github.com/mlightcad/libredwg-web/tree/v0.7.15 — 커밋 `18588818df66d4258b83fda19aa40fd892cdf49d` |
 | PDF.js 3.11.174 | https://github.com/mozilla/pdf.js/tree/v3.11.174 |
 
-DWG 엔진(`libredwg-web.wasm`)은 위 libredwg-web v0.7.15 소스를 그대로 빌드한 npm 패키지 `@mlightcad/libredwg-web@0.7.15`에서 가져옵니다.
+DWG 엔진(`libredwg-web.wasm`)은 npm 패키지 `@mlightcad/libredwg-web@0.7.15`에서 가져오며, 이 파일은 위 v0.7.15 태그에 들어 있는 `bindings/javascript/wasm/libredwg-web.wasm`과 바이트 단위로 같습니다 (SHA-256 `431576487027122a28e5ac99d91fe6366f81ecda743a4676878c75c85fe82c53`).
+원본 저장소가 사라져도 소스를 제공할 수 있도록, 같은 태그의 소스 보관본을 [`third_party/`](third_party/)에 함께 둡니다.
 자세한 고지는 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)를 보세요.

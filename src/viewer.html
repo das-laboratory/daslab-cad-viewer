@@ -114,6 +114,7 @@ dl.info dd{margin:0;font-family:var(--font-mono);font-size:12px;text-align:right
       <button class="btn" id="measureBtn" type="button" aria-pressed="false">거리 재기 <kbd>M</kbd></button>
       <button class="btn" id="calibBtn" type="button" aria-pressed="false">축척 맞추기</button>
       <button class="btn" id="aboutBtn" type="button">정보</button>
+      <button class="btn" id="dlBtn" type="button" title="인터넷 없이 쓰는 HTML 파일로 받기" hidden>파일로 받기</button>
       <a class="btn ghost" href="https://www.instagram.com/das_laboratory/" target="_blank" rel="noopener" title="DAS Lab 인스타그램">Instagram @das_laboratory</a>
       <button class="btn only-narrow" id="layersBtn" type="button" aria-expanded="false">레이어</button>
     </div>
@@ -150,6 +151,7 @@ dl.info dd{margin:0;font-family:var(--font-mono);font-size:12px;text-align:right
     <div class="about-head"><a href="https://daslab.co.kr" target="_blank" rel="noopener" title="DAS Lab 홈페이지 열기"><img class="logo-img lg" src="__LOGO_DATA_URI__" alt="DAS Lab"></a><button class="btn" id="aboutClose" type="button">닫기</button></div>
     <h2 id="aboutTitle">DAS Lab 도면 뷰어 <span class="chip">v1.0 · 2026.10</span></h2>
     <p>설치 없이 DWG · DXF · PDF · SVG · 이미지 도면을 열어 보는 무료 뷰어예요. 파일은 이 기기 안에서만 처리되고, 어디에도 올라가지 않아요.</p>
+    <p>웹에서 바로 쓰기: <a href="https://cad-viewer.daslab.co.kr" target="_blank" rel="noopener">cad-viewer.daslab.co.kr</a></p>
     <p><a href="https://daslab.co.kr" target="_blank" rel="noopener">daslab.co.kr</a> · <a href="https://www.instagram.com/das_laboratory/" target="_blank" rel="noopener">Instagram @das_laboratory</a></p>
     <h3>사용 시 유의사항</h3>
     <p>화면 표시와 측정값은 참고용이에요. 설계 · 시공 같은 실제 판단은 원본 CAD 파일에서 확인해 주세요. 이 프로그램은 어떤 보증도 없이 제공돼요.</p>
@@ -157,7 +159,7 @@ dl.info dd{margin:0;font-family:var(--font-mono);font-size:12px;text-align:right
     <p>이 프로그램은 GNU GPL v3(또는 이후 버전)으로 배포돼요. 누구나 자유롭게 쓰고, 고치고, 다시 배포할 수 있어요. 다시 배포할 때는 같은 라이선스로 소스 코드와 함께 배포해야 해요. ‘DAS Lab’ 이름과 로고는 이 라이선스에 포함되지 않아요 (GPL v3 제7조 e항).</p>
     <p>Copyright © 2026 주식회사 다스랩 (DAS Lab)</p>
     <h3>소스 코드와 오픈소스 고지</h3>
-    <p>뷰어 코드는 이 HTML 파일 안에 그대로 들어 있어요. 함께 쓴 오픈소스의 원본 소스는 아래 주소에서 받을 수 있어요.__SOURCE_LINE__</p>
+    <p>뷰어 코드는 이 HTML 파일 안에 그대로 들어 있어요. 함께 쓴 오픈소스의 원본 소스는 아래 주소에서 받을 수 있고, DWG 엔진 원본은 저장소의 third_party 폴더에도 보관돼 있어요.__SOURCE_LINE__</p>
     <div class="oss-wrap"><table class="oss">
       <tr><th>구성 요소</th><th>라이선스</th><th>저작권</th><th>소스</th></tr>
       <tr><td>LibreDWG (DWG 읽기)</td><td>GPL-3.0-or-later</td><td>© Free Software Foundation, Inc.</td><td><a href="https://github.com/LibreDWG/libredwg" target="_blank" rel="noopener">github.com/LibreDWG/libredwg</a></td></tr>
@@ -928,6 +930,18 @@ const aboutEl = $('about');
 function openAbout() { aboutEl.hidden = false; $('aboutClose').focus(); }
 function closeAbout() { aboutEl.hidden = true; $('aboutBtn').focus(); }
 $('aboutBtn').addEventListener('click', openAbout);
+// Offer the page itself as an offline file when it is served from the web (not inside a frame or from disk).
+if (/^https?:$/.test(location.protocol) && window.self === window.top) $('dlBtn').hidden = false;
+$('dlBtn').addEventListener('click', async () => {
+  try {
+    const res = await fetch(location.href.split('#')[0]);
+    if (!res.ok) throw new Error(res.status);
+    const url = URL.createObjectURL(new Blob([await res.arrayBuffer()], {type:'text/html'}));
+    const a = document.createElement('a'); a.href = url; a.download = 'daslab-cad-viewer.html';
+    document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
+    toast('파일을 받았어요. 더블클릭하면 인터넷 없이도 열려요.', 4000);
+  } catch (e) { toast('파일을 받지 못했어요. 잠시 뒤 다시 시도해 주세요.'); }
+});
 $('aboutClose').addEventListener('click', closeAbout);
 aboutEl.addEventListener('click', ev => { if (ev.target === aboutEl) closeAbout(); });
 $('measureBtn').addEventListener('click', () => setMeasure(!(measure.on && !measure.calib)));
